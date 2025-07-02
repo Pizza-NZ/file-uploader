@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -29,10 +30,12 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 	defer file.Close()
 
 	tempFolderPath := fmt.Sprintf("%s%s", RootPath, "/tempFiles")
+	slog.Info("Creating temporary folder", "path", tempFolderPath)
 	tempFileName := fmt.Sprintf("upload-%s-*%s", utils.FileNameWithoutExtension(handler.Filename), filepath.Ext(handler.Filename))
 
 	tempFile, err := os.CreateTemp(tempFolderPath, tempFileName)
 	if err != nil {
+		slog.Error("Error creating temporary file", "error", err)
 		return types.NewAppError("Internal Server Error", "Error in creating the file ", http.StatusInternalServerError, err)
 	}
 
@@ -40,9 +43,11 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 
 	filebytes, err := io.ReadAll(file)
 	if err != nil {
+		slog.Error("Error reading file buffer", "error", err)
 		return types.NewAppError("Internal Server Error", "Error in reading the file buffer", http.StatusInternalServerError, err)
 	}
 
 	tempFile.Write(filebytes)
+	slog.Info("File uploaded successfully", "filename", handler.Filename)
 	return nil
 }

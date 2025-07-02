@@ -1,7 +1,8 @@
+
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/pizza-nz/file-uploader/services"
@@ -29,22 +30,22 @@ func NewFileUploadHandler(maxFileSize int64) FileUploadHandler {
 }
 
 func (h *FileUploadHandlerImpl) CreateFileUpload(w http.ResponseWriter, r *http.Request) {
-	log.Printf("New Put request\n")
+	slog.Info("New Put request", "requestID", r.Header.Get("X-Request-ID"))
 	r.ParseMultipartForm(h.maxFileSize)
 
 	file, handler, err := r.FormFile("uploadFile")
 	if err != nil {
-		utils.HandleError(w, types.NewAppError("Error Reading File", "User file submitted failed to read", http.StatusBadRequest, err))
+		utils.HandleError(w, r, types.NewAppError("Error Reading File", "User file submitted failed to read", http.StatusBadRequest, err))
 		return
 	}
 
 	err = h.service.CreateFileUpload(file, handler)
 	if err != nil {
-		utils.HandleError(w, err)
+		utils.HandleError(w, r, err)
 		return
 	}
 
-	utils.JSONResponse(w, http.StatusCreated, "File Uploaded")
+	utils.JSONResponse(w, r, http.StatusCreated, "File Uploaded")
 }
 func (h *FileUploadHandlerImpl) GetFileUpload(w http.ResponseWriter, r *http.Request) {
 

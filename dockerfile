@@ -1,4 +1,4 @@
-FROM golang:1.23.0-alpine AS builder
+FROM golang:1.23.1-alpine AS builder
 
 WORKDIR /app
 
@@ -15,8 +15,8 @@ WORKDIR /app
 
 COPY --from=builder /app/server .
 
-EXPOSE 1232
+EXPOSE 2131
 
 ENTRYPOINT [ "/app/server" ]
 
-CMD [ "-addr", ":1232" ]
+CMD [ "-addr", ":2131" ]
