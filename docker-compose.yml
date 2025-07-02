@@ -1,10 +1,8 @@
 version: '3.8'
 
 services:
-  file-uploader:
-    build:
-      context: .
-      dockerfile: dockerfile
+  file-uploader-go-service:
+    build: .
     ports:
       - "2131:2131"
 
