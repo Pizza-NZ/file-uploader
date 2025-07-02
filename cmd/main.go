@@ -18,7 +18,7 @@ func main() {
 	flag.Parse()
 
 	mux := http.NewServeMux()
-	handl := handlers.NewFileUploadHandler()
+	handl := handlers.NewFileUploadHandler(200 << 20)
 	mux.HandleFunc("POST /upload", handl.CreateFileUpload)
 
 	server := http.Server{
