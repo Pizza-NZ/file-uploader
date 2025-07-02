@@ -1,4 +1,3 @@
-
 package services
 
 import (
@@ -70,7 +69,9 @@ func TestCreateFileUpload_ErrorCreatingFile(t *testing.T) {
 	RootPath = tempDir
 	defer func() { RootPath = originalRootPath }()
 
-	// Do not create the tempFiles directory to simulate an error
+	// Change permissions to read-only to simulate an error creating a file
+	err = os.Chmod(tempDir, 0444)
+	assert.NoError(t, err)
 
 	// Create a dummy file content
 	fileContent := []byte("test file content")
@@ -80,8 +81,8 @@ func TestCreateFileUpload_ErrorCreatingFile(t *testing.T) {
 		Size:     int64(len(fileContent)),
 	}
 
-	service := &FileUploadServiceImpl{}
+	service := NewFileUploadService()
 	err = service.CreateFileUpload(file, handler)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Error in creating the file")
+	assert.Contains(t, err.Error(), "permission denied")
 }

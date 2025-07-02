@@ -13,4 +13,7 @@ test:
 integration-test:
 	docker-compose up --build integration-tests
 
+docker-up:
+	docker-compose up --build
+
 .PHONY: build run clean test

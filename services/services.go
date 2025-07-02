@@ -33,7 +33,14 @@ func NewFileUploadService() FileUploadService {
 func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) error {
 	defer file.Close()
 
-	tempFolderPath := fmt.Sprintf("%s%s", RootPath, "/tempFiles")
+	tempFolderPath := filepath.Join(RootPath, "tempFiles")
+	if _, err := os.Stat(tempFolderPath); os.IsNotExist(err) {
+		err = os.MkdirAll(tempFolderPath, os.ModePerm)
+		if err != nil {
+			slog.Error("Error creating temporary folder", "error", err)
+			return types.NewAppError("Internal Server Error", "Error in creating the temporary folder", http.StatusInternalServerError, err)
+		}
+	}
 	slog.Info("Creating temporary folder", "path", tempFolderPath)
 	tempFileName := fmt.Sprintf("upload-%s-*%s", utils.FileNameWithoutExtension(handler.Filename), filepath.Ext(handler.Filename))
 
