@@ -26,10 +26,14 @@ type FileUploadHandlerImpl struct {
 func NewFileUploadHandler(maxFileSize int64) FileUploadHandler {
 	return &FileUploadHandlerImpl{
 		maxFileSize: maxFileSize,
+		service:     &services.FileUploadServiceImpl{},
 	}
 }
 
 func (h *FileUploadHandlerImpl) CreateFileUpload(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		panic("FileUploadService is not initialized")
+	}
 	slog.Info("New Put request", "requestID", r.Header.Get("X-Request-ID"))
 	r.ParseMultipartForm(h.maxFileSize)
 
