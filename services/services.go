@@ -26,6 +26,10 @@ type FileUploadService interface {
 type FileUploadServiceImpl struct {
 }
 
+func NewFileUploadService() FileUploadService {
+	return &FileUploadServiceImpl{}
+}
+
 func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) error {
 	defer file.Close()
 
