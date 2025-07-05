@@ -1,0 +1,20 @@
+server:
+  port: ":2131"
+  host: "localhost"
+
+file:
+  maxSize: 209715200 # 200MB
+  path: "./tempFiles"
+  timeout: 30
+  unit: "s"
+  chunkSize: 1048576 # 1MB
+
+logging:
+  level: "info"
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "user"
+  password: "password"
+  dbname: "file_uploader"

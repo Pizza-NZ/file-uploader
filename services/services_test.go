@@ -84,7 +84,7 @@ func TestCreateFileUpload_ErrorCreatingFile(t *testing.T) {
 		Size:     int64(len(fileContent)),
 	}
 
-	service := NewFileUploadService()
+	service := NewFileUploadService(tempDir)
 	_, err = service.CreateFileUpload(file, handler)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
