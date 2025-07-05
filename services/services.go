@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"github.com/pizza-nz/file-uploader/types"
 	"github.com/pizza-nz/file-uploader/utils"
@@ -17,6 +18,7 @@ import (
 var (
 	_, b, _, _ = runtime.Caller(0)
 	RootPath   = filepath.Join(filepath.Dir(b), "../..")
+	createDirOnce sync.Once
 )
 
 type FileUploadService interface {
@@ -53,13 +55,14 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 	}
 
 	tempFolderPath := s.filePath
-	if _, err := os.Stat(tempFolderPath); os.IsNotExist(err) {
-		err = os.MkdirAll(tempFolderPath, os.ModePerm)
-		if err != nil {
-			slog.Error("Error creating temporary folder", "error", err)
-			return nil, fmt.Errorf("failed to create temporary folder: %w", err)
+	createDirOnce.Do(func() {
+		if _, err := os.Stat(tempFolderPath); os.IsNotExist(err) {
+			if err := os.MkdirAll(tempFolderPath, os.ModePerm); err != nil {
+				slog.Error("Error creating temporary folder", "error", err)
+			}
 		}
-	}
+	})
+
 	slog.Info("Creating temporary folder", "path", tempFolderPath)
 	tempFileName := fmt.Sprintf("upload-%s-*%s", utils.FileNameWithoutExtension(handler.Filename), filepath.Ext(handler.Filename))
 
