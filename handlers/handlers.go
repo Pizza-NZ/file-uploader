@@ -1,4 +1,3 @@
-
 package handlers
 
 import (
@@ -9,6 +8,10 @@ import (
 	"github.com/pizza-nz/file-uploader/types"
 	"github.com/pizza-nz/file-uploader/utils"
 )
+
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	utils.JSONResponse(w, r, http.StatusOK, "OK")
+}
 
 type FileUploadHandler interface {
 	CreateFileUpload(w http.ResponseWriter, r *http.Request)

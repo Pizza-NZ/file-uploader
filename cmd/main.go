@@ -26,6 +26,7 @@ func main() {
 	mux := http.NewServeMux()
 	handl := handlers.NewFileUploadHandler(200 << 20)
 	mux.HandleFunc("POST /upload", handl.CreateFileUpload)
+	mux.HandleFunc("GET /health", handlers.HealthCheck)
 
 	server := http.Server{
 		Addr:    *addr,

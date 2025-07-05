@@ -1,17 +1,27 @@
 version: '3.8'
 
 services:
-  file-uploader-go-service:
+  go-service:
     build: .
     ports:
       - "2131:2131"
 
-  proxy:
+  nginx:
     image: nginx:latest
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
       - ./proxy/nginx.conf:/etc/nginx/nginx.conf
       - ./public:/usr/share/nginx/html
     depends_on:
-      - file-uploader
+      - go-service
+
+  integration-tests:
+    build:
+      context: .
+      target: builder
+    working_dir: /app
+    entrypoint: go test -v ./cmd/integration_test.go ./cmd/main.go
+    depends_on:
+      - go-service
+      - nginx
