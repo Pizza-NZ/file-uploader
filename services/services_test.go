@@ -47,7 +47,7 @@ func TestCreateFileUpload_Success(t *testing.T) {
 	}
 
 	service := &FileUploadServiceImpl{}
-	err = service.CreateFileUpload(file, handler)
+	response, err := service.CreateFileUpload(file, handler)
 	assert.NoError(t, err)
 
 	// Check if the file was created in the tempFiles directory
@@ -56,6 +56,9 @@ func TestCreateFileUpload_Success(t *testing.T) {
 	assert.Len(t, files, 1)
 	assert.True(t, strings.HasPrefix(files[0].Name(), "upload-test-"))
 	assert.True(t, strings.HasSuffix(files[0].Name(), ".txt"))
+	assert.Equal(t, int64(len(fileContent)), response.Size)
+	assert.True(t, strings.HasPrefix(response.FileID, "upload-test-"))
+	assert.True(t, strings.HasSuffix(response.FileID, ".txt"))
 }
 
 func TestCreateFileUpload_ErrorCreatingFile(t *testing.T) {
@@ -82,7 +85,7 @@ func TestCreateFileUpload_ErrorCreatingFile(t *testing.T) {
 	}
 
 	service := NewFileUploadService()
-	err = service.CreateFileUpload(file, handler)
+	_, err = service.CreateFileUpload(file, handler)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
 }
