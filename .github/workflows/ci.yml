@@ -28,7 +28,7 @@ jobs:
           docker-compose version
 
       - name: Run integration tests
-        run: docker-compose up --build --abort-on-container-exit integration-tests -count=1
+        run: docker-compose up --build --abort-on-container-exit integration-tests
       
       - name: Build the Docker image
         run: docker build . --file dockerfile --tag my-image-name:$(date +%s)
