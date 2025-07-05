@@ -46,13 +46,13 @@ func (h *FileUploadHandlerImpl) CreateFileUpload(w http.ResponseWriter, r *http.
 		return
 	}
 
-	err = h.service.CreateFileUpload(file, handler)
+	fileUploadResponse, err := h.service.CreateFileUpload(file, handler)
 	if err != nil {
 		utils.HandleError(w, r, err)
 		return
 	}
 
-	utils.JSONResponse(w, r, http.StatusCreated, "File Uploaded")
+	utils.JSONResponse(w, r, http.StatusCreated, fileUploadResponse)
 }
 func (h *FileUploadHandlerImpl) GetFileUpload(w http.ResponseWriter, r *http.Request) {
 

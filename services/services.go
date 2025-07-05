@@ -20,7 +20,7 @@ var (
 )
 
 type FileUploadService interface {
-	CreateFileUpload(file multipart.File, handler *multipart.FileHeader) error
+	CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error)
 }
 
 type FileUploadServiceImpl struct {
@@ -30,7 +30,7 @@ func NewFileUploadService() FileUploadService {
 	return &FileUploadServiceImpl{}
 }
 
-func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) error {
+func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
 	defer file.Close()
 
 	tempFolderPath := filepath.Join(RootPath, "tempFiles")
@@ -38,7 +38,7 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 		err = os.MkdirAll(tempFolderPath, os.ModePerm)
 		if err != nil {
 			slog.Error("Error creating temporary folder", "error", err)
-			return types.NewAppError("Internal Server Error", "Error in creating the temporary folder", http.StatusInternalServerError, err)
+			return nil, types.NewAppError("Internal Server Error", "Error in creating the temporary folder", http.StatusInternalServerError, err)
 		}
 	}
 	slog.Info("Creating temporary folder", "path", tempFolderPath)
@@ -47,7 +47,7 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 	tempFile, err := os.CreateTemp(tempFolderPath, tempFileName)
 	if err != nil {
 		slog.Error("Error creating temporary file", "error", err)
-		return types.NewAppError("Internal Server Error", "Error in creating the file ", http.StatusInternalServerError, err)
+		return nil, types.NewAppError("Internal Server Error", "Error in creating the file ", http.StatusInternalServerError, err)
 	}
 
 	defer tempFile.Close()
@@ -55,10 +55,15 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 	filebytes, err := io.ReadAll(file)
 	if err != nil {
 		slog.Error("Error reading file buffer", "error", err)
-		return types.NewAppError("Internal Server Error", "Error in reading the file buffer", http.StatusInternalServerError, err)
+		return nil, types.NewAppError("Internal Server Error", "Error in reading the file buffer", http.StatusInternalServerError, err)
 	}
 
-	tempFile.Write(filebytes)
+	_, err = tempFile.Write(filebytes)
+	if err != nil {
+		slog.Error("Error writing file to disk", "error", err)
+		return nil, types.NewAppError("Internal Server Error", "Error writing file to disk", http.StatusInternalServerError, err)
+	}
+
 	slog.Info("File uploaded successfully", "filename", handler.Filename)
-	return nil
+	return &types.FileUploadResponse{FileID: filepath.Base(tempFile.Name()), Size: handler.Size}, nil
 }

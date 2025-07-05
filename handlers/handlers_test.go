@@ -11,15 +11,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pizza-nz/file-uploader/types"
 	"github.com/stretchr/testify/assert"
 )
 
 // Mock FileUploadService
 type MockFileUploadService struct {
-	CreateFileUploadFunc func(file multipart.File, handler *multipart.FileHeader) error
+	CreateFileUploadFunc func(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error)
 }
 
-func (m *MockFileUploadService) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) error {
+func (m *MockFileUploadService) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
 	return m.CreateFileUploadFunc(file, handler)
 }
 
@@ -63,12 +64,12 @@ func TestCreateFileUpload(t *testing.T) {
 			name:        "Successful file upload",
 			maxFileSize: 10 * 1024 * 1024, // 10 MB
 			service: &MockFileUploadService{
-				CreateFileUploadFunc: func(file multipart.File, handler *multipart.FileHeader) error {
-					return nil
+				CreateFileUploadFunc: func(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
+					return &types.FileUploadResponse{FileID: "test-file-id", Size: 123}, nil
 				},
 			},
 			expectedStatusCode: http.StatusCreated,
-			expectedBody:       `"File Uploaded"`,
+			expectedBody:       `"fileId":"test-file-id","size":123`,
 		},
 		{
 			name:               "No file in upload",
