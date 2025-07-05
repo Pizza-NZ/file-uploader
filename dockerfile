@@ -14,9 +14,10 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/server .
+COPY config.yml .
 
 EXPOSE 2131
 
 ENTRYPOINT [ "/app/server" ]
 
-CMD [ "-addr", ":2131" ]
+CMD [ "-config", "/app/config.yml" ]

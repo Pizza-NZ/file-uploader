@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "./config.yml", "path to config file")
+	configPath := flag.String("config", "/app/config.yml", "path to config file")
 	flag.Parse()
 
 	cfg, err := config.NewConfig(*configPath)

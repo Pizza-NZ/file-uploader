@@ -1,10 +1,23 @@
 version: '3.8'
 
+networks:
+  file-uploader-network:
+    driver: bridge
+
 services:
   go-service:
     build: .
     ports:
       - "2131:2131"
+    volumes:
+      - ./config.yml:/app/config.yml
+    networks:
+      - file-uploader-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2131/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   nginx:
     image: nginx:latest
@@ -14,14 +27,26 @@ services:
       - ./proxy/nginx.conf:/etc/nginx/nginx.conf
       - ./public:/usr/share/nginx/html
     depends_on:
-      - go-service
+      go-service:
+        condition: service_healthy
+    networks:
+      - file-uploader-network
+    healthcheck:
+      test: ["CMD", "service", "nginx", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   integration-tests:
     build:
       context: .
       target: builder
+    volumes:
+      - ./config.yml:/app/config.yml
     working_dir: /app
-    entrypoint: go test -v ./cmd/integration_test.go ./cmd/main.go
+    entrypoint: go test -v ./cmd/integration_test.go
     depends_on:
-      - go-service
-      - nginx
+      nginx:
+        condition: service_healthy
+    networks:
+      - file-uploader-network
