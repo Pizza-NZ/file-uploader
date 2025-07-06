@@ -14,10 +14,12 @@ import (
 	"github.com/pizza-nz/file-uploader/handlers"
 	"github.com/pizza-nz/file-uploader/logging"
 	"github.com/pizza-nz/file-uploader/middleware"
+	"github.com/pizza-nz/file-uploader/services"
+	"github.com/pizza-nz/file-uploader/storage"
 )
 
 func main() {
-	configPath := flag.String("config", "/app/config.yml", "path to config file")
+	configPath := flag.String("config", "config.yml", "path to config file")
 	flag.Parse()
 
 	cfg, err := config.NewConfig(*configPath)
@@ -34,8 +36,16 @@ func main() {
 	logger := logging.NewLogger(cfg.Logging.Level)
 	slog.SetDefault(logger)
 
+	fileStorage, err := storage.NewS3Storage(cfg.AWS)
+	if err != nil {
+		slog.Error("Failed to create S3 storage", "error", err)
+		os.Exit(1)
+	}
+
+	fileUploadService := services.NewFileUploadService(fileStorage)
+
 	mux := http.NewServeMux()
-	handl := handlers.NewFileUploadHandler(cfg.File.MaxSize, cfg.File.Path)
+	handl := handlers.NewFileUploadHandler(cfg.File.MaxSize, fileUploadService)
 	mux.HandleFunc("POST /upload", handl.CreateFileUpload)
 	mux.HandleFunc("GET /health", handlers.HealthCheck)
 

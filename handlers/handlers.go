@@ -26,10 +26,10 @@ type FileUploadHandlerImpl struct {
 	service     services.FileUploadService
 }
 
-func NewFileUploadHandler(maxFileSize int64, filePath string) FileUploadHandler {
+func NewFileUploadHandler(maxFileSize int64, service services.FileUploadService) FileUploadHandler {
 	return &FileUploadHandlerImpl{
 		maxFileSize: maxFileSize,
-		service:     services.NewFileUploadService(filePath),
+		service:     service,
 	}
 }
 

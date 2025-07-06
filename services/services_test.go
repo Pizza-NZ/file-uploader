@@ -2,11 +2,12 @@ package services
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"mime/multipart"
-	"os"
-	"strings"
 	"testing"
 
+	"github.com/pizza-nz/file-uploader/storage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,10 +25,7 @@ func (m *mockMultipartFile) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func TestCreateFileUpload_Success(t *testing.T) {
-	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "test-temp-files")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	mockFileStorage := new(storage.MockFileStorage)
 
 	// Create a dummy file content for a JPEG (1x1 black pixel)
 	fileContent := []byte{
@@ -49,30 +47,22 @@ func TestCreateFileUpload_Success(t *testing.T) {
 		Size:     int64(len(fileContent)),
 	}
 
-	service := NewFileUploadService(tempDir)
-	response, err := service.CreateFileUpload(file, handler)
-	assert.NoError(t, err)
+	service := NewFileUploadService(mockFileStorage)
 
-	// Check if the file was created in the tempFiles directory
-	files, err := os.ReadDir(tempDir)
+	mockFileStorage.On("Upload", context.TODO(), file, handler).Return("some-object-key", nil)
+
+	response, err := service.CreateFileUpload(file, handler)
+
 	assert.NoError(t, err)
-	assert.Len(t, files, 1)
-	assert.True(t, strings.HasPrefix(files[0].Name(), "upload-test-"))
-	assert.True(t, strings.HasSuffix(files[0].Name(), ".jpg"))
+	assert.NotNil(t, response)
+	assert.Equal(t, "some-object-key", response.FileID)
 	assert.Equal(t, int64(len(fileContent)), response.Size)
-	assert.True(t, strings.HasPrefix(response.FileID, "upload-test-"))
-	assert.True(t, strings.HasSuffix(response.FileID, ".jpg"))
+
+	mockFileStorage.AssertExpectations(t)
 }
 
-func TestCreateFileUpload_ErrorCreatingFile(t *testing.T) {
-	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "test-temp-files")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Change permissions to read-only to simulate an error creating a file
-	err = os.Chmod(tempDir, 0444)
-	assert.NoError(t, err)
+func TestCreateFileUpload_StorageError(t *testing.T) {
+	mockFileStorage := new(storage.MockFileStorage)
 
 	// Create a dummy file content for a JPEG (1x1 black pixel)
 	fileContent := []byte{
@@ -94,8 +84,14 @@ func TestCreateFileUpload_ErrorCreatingFile(t *testing.T) {
 		Size:     int64(len(fileContent)),
 	}
 
-	service := NewFileUploadService(tempDir)
-	_, err = service.CreateFileUpload(file, handler)
+	service := NewFileUploadService(mockFileStorage)
+
+	mockFileStorage.On("Upload", context.TODO(), file, handler).Return("", errors.New("Storage error"))
+
+	_, err := service.CreateFileUpload(file, handler)
+
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "permission denied")
+	assert.Contains(t, err.Error(), "Storage error")
+
+	mockFileStorage.AssertExpectations(t)
 }
