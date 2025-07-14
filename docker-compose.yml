@@ -7,6 +7,10 @@ networks:
 services:
   go-service:
     build: .
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - BUCKET_NAME=${BUCKET_NAME}
     ports:
       - "2131:2131"
     volumes:

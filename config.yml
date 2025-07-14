@@ -22,5 +22,5 @@ database:
 aws:
   region: "ap-southeast-2"
   s3:
-    bucket_name: "pizza-file-uploader"
+    bucket_name: "${S3_BUCKET_NAME}"
     presigned_url_expiry: 30 # in minutes
