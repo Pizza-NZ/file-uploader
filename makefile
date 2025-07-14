@@ -14,6 +14,6 @@ integration-test:
 	docker-compose up --build integration-tests
 
 docker-up:
-	docker-compose up --build
+	docker compose up go-service nginx
 
 .PHONY: build run clean test

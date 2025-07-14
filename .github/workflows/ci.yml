@@ -29,6 +29,10 @@ jobs:
 
       - name: Run integration tests
         run: docker-compose up --build --abort-on-container-exit integration-tests
+
+      - name: Show go-service logs on failure
+        if: failure()
+        run: docker-compose logs go-service
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
