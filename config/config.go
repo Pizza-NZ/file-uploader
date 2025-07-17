@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 )
 
@@ -12,6 +13,7 @@ type Config struct {
 	File     FileConfig     `yaml:"file"`
 	Logging  LoggingConfig  `yaml:"logging"`
 	Database DatabaseConfig `yaml:"database"`
+	AWS      AWSConfig      `yaml:"aws"`
 }
 
 type ServerConfig struct {
@@ -39,7 +41,23 @@ type DatabaseConfig struct {
 	Dbname   string `yaml:"dbname"`
 }
 
+type S3Config struct {
+	BucketName         string `yaml:"bucket_name"`
+	PresignedURLExpiry int    `yaml:"presigned_url_expiry"`
+}
+
+type AWSConfig struct {
+	Region          string   `yaml:"region"`
+	AccessKeyID     string   `yaml:"-"`
+	SecretAccessKey string   `yaml:"-"`
+	S3              S3Config `yaml:"s3"`
+}
+
 func NewConfig(configPath string) (*Config, error) {
+	if err := godotenv.Load(); err != nil {
+		slog.Warn("No .env file found")
+	}
+
 	config := &Config{}
 
 	file, err := os.Open(configPath)
@@ -53,6 +71,9 @@ func NewConfig(configPath string) (*Config, error) {
 	if err := d.Decode(&config); err != nil {
 		return nil, err
 	}
+
+	config.AWS.AccessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
+	config.AWS.SecretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
 	return config, nil
 }
@@ -72,6 +93,26 @@ func ValidateConfig(config *Config) bool {
 	}
 	if config.Logging.Level == "" {
 		slog.Error("Logging level is not set")
+		return false
+	}
+	if config.AWS.Region == "" {
+		slog.Error("AWS region is not set")
+		return false
+	}
+	if config.AWS.AccessKeyID == "" {
+		slog.Error("AWS access key ID is not set")
+		return false
+	}
+	if config.AWS.SecretAccessKey == "" {
+		slog.Error("AWS secret access key is not set")
+		return false
+	}
+	if config.AWS.S3.BucketName == "" {
+		slog.Error("S3 bucket name is not set")
+		return false
+	}
+	if config.AWS.S3.PresignedURLExpiry == 0 {
+		slog.Error("S3 presigned URL expiry is not set")
 		return false
 	}
 	return true

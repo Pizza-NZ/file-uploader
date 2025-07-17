@@ -1,24 +1,14 @@
 package services
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
-	"runtime"
-	"sync"
 
+	"github.com/pizza-nz/file-uploader/storage"
 	"github.com/pizza-nz/file-uploader/types"
-	"github.com/pizza-nz/file-uploader/utils"
-)
-
-var (
-	_, b, _, _ = runtime.Caller(0)
-	RootPath   = filepath.Join(filepath.Dir(b), "../..")
-	createDirOnce sync.Once
 )
 
 type FileUploadService interface {
@@ -26,11 +16,11 @@ type FileUploadService interface {
 }
 
 type FileUploadServiceImpl struct {
-	filePath string
+	fileStorage storage.FileStorage
 }
 
-func NewFileUploadService(filePath string) FileUploadService {
-	return &FileUploadServiceImpl{filePath: filePath}
+func NewFileUploadService(fileStorage storage.FileStorage) FileUploadService {
+	return &FileUploadServiceImpl{fileStorage: fileStorage}
 }
 
 func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
@@ -46,46 +36,19 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 	}
 	contentType := http.DetectContentType(fileHeader)
 	allowedTypes := map[string]bool{
-		"image/jpeg": true,
-		"image/png":  true,
+		"image/jpeg":      true,
+		"image/png":       true,
 		"application/pdf": true,
 	}
 	if !allowedTypes[contentType] {
 		return nil, types.NewAppError("Invalid File Type", fmt.Sprintf("File type %s is not allowed", contentType), http.StatusBadRequest, nil)
 	}
 
-	tempFolderPath := s.filePath
-	createDirOnce.Do(func() {
-		if _, err := os.Stat(tempFolderPath); os.IsNotExist(err) {
-			if err := os.MkdirAll(tempFolderPath, os.ModePerm); err != nil {
-				slog.Error("Error creating temporary folder", "error", err)
-			}
-		}
-	})
-
-	slog.Info("Creating temporary folder", "path", tempFolderPath)
-	tempFileName := fmt.Sprintf("upload-%s-*%s", utils.FileNameWithoutExtension(handler.Filename), filepath.Ext(handler.Filename))
-
-	tempFile, err := os.CreateTemp(tempFolderPath, tempFileName)
+	s3ObjectKey, err := s.fileStorage.Upload(context.TODO(), file, handler)
 	if err != nil {
-		slog.Error("Error creating temporary file", "error", err)
-		return nil, fmt.Errorf("failed to create temporary file: %w", err)
+		return nil, err
 	}
 
-	defer tempFile.Close()
-
-	filebytes, err := io.ReadAll(file)
-	if err != nil {
-		slog.Error("Error reading file buffer", "error", err)
-		return nil, fmt.Errorf("failed to read file buffer: %w", err)
-	}
-
-	_, err = tempFile.Write(filebytes)
-	if err != nil {
-		slog.Error("Error writing file to disk", "error", err)
-		return nil, fmt.Errorf("failed to write file to disk: %w", err)
-	}
-
-	slog.Info("File uploaded successfully", "filename", handler.Filename)
-	return &types.FileUploadResponse{FileID: filepath.Base(tempFile.Name()), Size: handler.Size}, nil
+	slog.Info("File uploaded successfully", "filename", handler.Filename, "s3_key", s3ObjectKey)
+	return &types.FileUploadResponse{FileID: s3ObjectKey, Size: handler.Size}, nil
 }
