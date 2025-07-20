@@ -4,16 +4,21 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 env:
   AWS_REGION: ap-southeast-2 # Or use a GitHub Secret if it varies
   ECR_REPOSITORY: file-uploader # From your Terraform config
   ECS_CLUSTER_NAME: file-uploader-cluster # From your Terraform config
   ECS_SERVICE_NAME: file-uploader-service # From your Terraform config
+  S3_BUCKET_NAME: file-uploader-bucket # From your Terraform config
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: main
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,7 +42,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          S3_BUCKET_NAME: ${{ env.S3_BUCKET_NAME }}
 
       - name: Show go-service logs on failure
         if: failure()
@@ -71,4 +76,4 @@ jobs:
             --force-new-deployment \
             --task-definition $(aws ecs describe-task-definition --task-definition file-uploader --query 'taskDefinition.taskDefinitionArn' --output text) \
             --container "file-uploader" \
-            --image "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+            --image "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
