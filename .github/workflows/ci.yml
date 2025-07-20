@@ -1,18 +1,22 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+
+env:
+  AWS_REGION: ap-southeast-2 # Or use a GitHub Secret if it varies
+  ECR_REPOSITORY: file-uploader # From your Terraform config
+  ECS_CLUSTER_NAME: file-uploader-cluster # From your Terraform config
+  ECS_SERVICE_NAME: file-uploader-service # From your Terraform config
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    environment: main
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -44,25 +48,27 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Get commit hash
-        id: get-commit-hash
-        run: echo "commit-hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      - name: Get timestamp
-        id: get-timestamp
-        run: echo "timestamp=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_OUTPUT
-
-      - name: Build, tag, and push the image to Amazon ECR
+      - name: Build, tag, and push image to Amazon ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
-          IMAGE_TAG: ${{ steps.get-commit-hash.outputs.commit-hash }}-${{ steps.get-timestamp.outputs.timestamp }}
+          IMAGE_TAG: ${{ github.sha }} # Use Git SHA as tag
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER_NAME }} \
+            --service ${{ env.ECS_SERVICE_NAME }} \
+            --force-new-deployment \
+            --task-definition $(aws ecs describe-task-definition --task-definition file-uploader --query 'taskDefinition.taskDefinitionArn' --output text) \
+            --container "file-uploader" \
+            --image "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
