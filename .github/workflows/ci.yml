@@ -69,11 +69,31 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Update ECS service
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
+          TASK_DEFINITION_NAME="file-uploader"
+          CURRENT_TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_DEFINITION_NAME)
+          
+          # Extract the family and revision to create a new task definition
+          TASK_DEFINITION_FAMILY=$(echo $CURRENT_TASK_DEFINITION | jq -r '.taskDefinition.family')
+          TASK_DEFINITION_REVISION=$(echo $CURRENT_TASK_DEFINITION | jq -r '.taskDefinition.revision')
+
+          # Construct the new image URI
+          NEW_IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          # Update the image in the task definition JSON
+          UPDATED_TASK_DEFINITION=$(echo $CURRENT_TASK_DEFINITION | jq             --arg NEW_IMAGE "$NEW_IMAGE_URI"             '.taskDefinition | .containerDefinitions |= map(if .name == "file-uploader" then .image = $NEW_IMAGE else . end) | del(.taskDefinitionArn, .revision, .status, .compatibilities)')
+
+          # Register the new task definition
+          NEW_TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$UPDATED_TASK_DEFINITION" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          # Update the ECS service to use the new task definition
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER_NAME }} \
             --service ${{ env.ECS_SERVICE_NAME }} \
             --force-new-deployment \
-            --task-definition $(aws ecs describe-task-definition --task-definition file-uploader --query 'taskDefinition.taskDefinitionArn' --output text) \
-            --container "file-uploader" \
-            --image "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+            --task-definition "$NEW_TASK_DEFINITION_ARN"
