@@ -1,8 +1,8 @@
-
 package handlers
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -17,11 +17,11 @@ import (
 
 // Mock FileUploadService
 type MockFileUploadService struct {
-	CreateFileUploadFunc func(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error)
+	CreateFileUploadFunc func(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error)
 }
 
-func (m *MockFileUploadService) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
-	return m.CreateFileUploadFunc(file, handler)
+func (m *MockFileUploadService) CreateFileUpload(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
+	return m.CreateFileUploadFunc(ctx, file, handler)
 }
 
 func TestCreateFileUpload(t *testing.T) {
@@ -64,7 +64,7 @@ func TestCreateFileUpload(t *testing.T) {
 			name:        "Successful file upload",
 			maxFileSize: 10 * 1024 * 1024, // 10 MB
 			service: &MockFileUploadService{
-				CreateFileUploadFunc: func(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
+				CreateFileUploadFunc: func(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
 					return &types.FileUploadResponse{FileID: "test-file-id", Size: 123}, nil
 				},
 			},

@@ -12,7 +12,7 @@ import (
 )
 
 type FileUploadService interface {
-	CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error)
+	CreateFileUpload(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error)
 }
 
 type FileUploadServiceImpl struct {
@@ -23,7 +23,7 @@ func NewFileUploadService(fileStorage storage.FileStorage) FileUploadService {
 	return &FileUploadServiceImpl{fileStorage: fileStorage}
 }
 
-func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
+func (s *FileUploadServiceImpl) CreateFileUpload(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
 	defer file.Close()
 
 	// Check file type
@@ -44,7 +44,7 @@ func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *m
 		return nil, types.NewAppError("Invalid File Type", fmt.Sprintf("File type %s is not allowed", contentType), http.StatusBadRequest, nil)
 	}
 
-	s3ObjectKey, err := s.fileStorage.Upload(context.TODO(), file, handler)
+	s3ObjectKey, err := s.fileStorage.Upload(ctx, file, handler)
 	if err != nil {
 		return nil, err
 	}

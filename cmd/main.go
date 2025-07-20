@@ -36,7 +36,7 @@ func main() {
 	logger := logging.NewLogger(cfg.Logging.Level)
 	slog.SetDefault(logger)
 
-	fileStorage, err := storage.NewS3Storage(cfg.AWS)
+	fileStorage, err := storage.NewS3Storage(context.Background(), cfg.AWS)
 	if err != nil {
 		slog.Error("Failed to create S3 storage", "error", err)
 		os.Exit(1)
