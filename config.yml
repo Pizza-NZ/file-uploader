@@ -22,5 +22,5 @@ database:
 aws:
   region: "ap-southeast-2"
   s3:
-    bucket_name: ${S3_BUCKET_NAME}
+    bucket_name: file-uploader-uploads-330154525676
     presigned_url_expiry: 30 # in minutes

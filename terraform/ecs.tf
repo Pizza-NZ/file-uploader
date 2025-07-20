@@ -1,0 +1,119 @@
+
+# Creates an ECS cluster to run the application.
+resource "aws_ecs_cluster" "main" {
+  name = "${var.app_name}-cluster"
+
+  tags = {
+    Name = "${var.app_name}-cluster"
+  }
+}
+
+# Creates a security group for the ECS service.
+# This allows inbound traffic on the application port and outbound traffic to the internet.
+resource "aws_security_group" "ecs_service" {
+  name        = "${var.app_name}-ecs-service-sg"
+  description = "Allow inbound traffic to the ${var.app_name} service"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # For now, allow traffic from anywhere. This should be restricted in a production environment.
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.app_name}-ecs-service-sg"
+  }
+}
+
+# Creates the ECS task definition for the application.
+# This defines the container image, CPU/memory, IAM roles, and logging configuration.
+resource "aws_ecs_task_definition" "main" {
+  family                   = var.app_name
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = var.app_name
+      image     = "${aws_ecr_repository.main.repository_url}:latest" # Placeholder, will be updated by CI/CD
+      essential = true
+      portMappings = [
+        {
+          containerPort = 8080
+          hostPort      = 8080
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.main.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+      environment = [
+        {
+          name  = "GIN_MODE"
+          value = "release"
+        },
+        {
+          name  = "PORT"
+          value = "8080"
+        }
+      ]
+      secrets = [
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = aws_secretsmanager_secret.db_password.arn
+        }
+      ]
+    }
+  ])
+
+  tags = {
+    Name = "${var.app_name}-task"
+  }
+}
+
+# Creates the ECS service to run the application.
+# This service ensures that the specified number of tasks are running and registers them with the load balancer.
+resource "aws_ecs_service" "main" {
+  name            = "${var.app_name}-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.main.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+    security_groups = [aws_security_group.ecs_service.id]
+    assign_public_ip = false # The service runs in private subnets
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.main.arn
+    container_name   = var.app_name
+    container_port   = 8080
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.ecs_task_role_secrets_access,
+  ]
+
+  tags = {
+    Name = "${var.app_name}-service"
+  }
+}
