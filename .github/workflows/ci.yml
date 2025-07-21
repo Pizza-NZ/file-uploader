@@ -9,16 +9,19 @@ on:
       - main
 
 env:
-  AWS_REGION: ap-southeast-2 # Or use a GitHub Secret if it varies
-  ECR_REPOSITORY: file-uploader # From your Terraform config
-  ECS_CLUSTER_NAME: file-uploader-cluster # From your Terraform config
-  ECS_SERVICE_NAME: file-uploader-service # From your Terraform config
-  S3_BUCKET_NAME: file-uploader-bucket # From your Terraform config
+  AWS_REGION: ap-southeast-2
+  ECR_REPOSITORY: file-uploader
+  ECS_CLUSTER_NAME: file-uploader-cluster
+  ECS_SERVICE_NAME: file-uploader-service
+  S3_BUCKET_NAME: file-uploader-bucket
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: main
+    permissions: # Add permissions for AWS actions to work correctly
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,7 +29,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.23' # Ensure this matches your project's Go version
 
       - name: Run tests
         run: go test -v ./...
@@ -63,37 +66,29 @@ jobs:
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }} # Use Git SHA as tag
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Update ECS service
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+      - name: Download task definition
+        id: task-def
         run: |
-          TASK_DEFINITION_NAME="file-uploader"
-          CURRENT_TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_DEFINITION_NAME)
-          
-          # Extract the family and revision to create a new task definition
-          TASK_DEFINITION_FAMILY=$(echo $CURRENT_TASK_DEFINITION | jq -r '.taskDefinition.family')
-          TASK_DEFINITION_REVISION=$(echo $CURRENT_TASK_DEFINITION | jq -r '.taskDefinition.revision')
+          aws ecs describe-task-definition --task-definition file-uploader --query taskDefinition > task-definition.json
 
-          # Construct the new image URI
-          NEW_IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: file-uploader
+          image: ${{ steps.build-image.outputs.image_uri }}
 
-          # Update the image in the task definition JSON
-          UPDATED_TASK_DEFINITION=$(echo $CURRENT_TASK_DEFINITION | jq             --arg NEW_IMAGE "$NEW_IMAGE_URI"             '.taskDefinition | .containerDefinitions |= map(if .name == "file-uploader" then .image = $NEW_IMAGE else . end) | del(.taskDefinitionArn, .revision, .status, .compatibilities, .requiresAttributes, .registeredAt, .registeredBy)'
-
-          # Register the new task definition
-          NEW_TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
-            --cli-input-json "$UPDATED_TASK_DEFINITION" \
-            --query 'taskDefinition.taskDefinitionArn' --output text)
-
-          # Update the ECS service to use the new task definition
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER_NAME }} \
-            --service ${{ env.ECS_SERVICE_NAME }} \
-            --force-new-deployment \
-            --task-definition "$NEW_TASK_DEFINITION_ARN"
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_NAME }}
+          cluster: ${{ env.ECS_CLUSTER_NAME }}
+          wait-for-service-stability: true
