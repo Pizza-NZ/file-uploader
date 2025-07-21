@@ -1,9 +1,35 @@
+# Creates a dedicated security group for the Application Load Balancer.
+# This group allows inbound traffic from the internet on port 80.
+resource "aws_security_group" "alb" {
+  name        = "${var.app_name}-alb-sg"
+  description = "Allow inbound HTTP traffic to the ALB"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.app_name}-alb-sg"
+  }
+}
+
 # Creates an Application Load Balancer (ALB).
 resource "aws_lb" "main" {
   name               = "${var.app_name}-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.ecs_service.id]
+  security_groups    = [aws_security_group.alb.id]
   subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 
   tags = {

@@ -3,6 +3,8 @@
 resource "aws_secretsmanager_secret" "db_password" {
   name = "${var.app_name}/db_password"
   description = "Database password for the file uploader application"
+
+  recovery_window_in_days = 0
 }
 
 # Creates a version of the secret with a placeholder value.
