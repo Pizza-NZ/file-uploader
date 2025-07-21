@@ -14,7 +14,7 @@ resource "aws_lb" "main" {
 # Creates a target group for the ALB.
 # This group will contain the ECS tasks, and the ALB will route traffic to them.
 resource "aws_lb_target_group" "main" {
-  name        = "${var.app_name}-tg"
+  name_prefix = "fu-tg-"
   port        = var.app_port
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -29,6 +29,10 @@ resource "aws_lb_target_group" "main" {
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 2
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 
   tags = {
