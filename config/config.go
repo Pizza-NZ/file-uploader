@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"strings"
@@ -87,26 +88,21 @@ func NewConfig(configPath string) (*Config, error) {
 
 // ValidateConfig checks if the configuration is valid.
 // It now includes an environment check to only validate AWS keys in non-production environments.
-func ValidateConfig(config *Config) bool {
+func ValidateConfig(config *Config) error {
 	if config.Server.Port == "" {
-		slog.Error("Server port is not set")
-		return false
+		return errors.New("server port is not set")
 	}
 	if config.File.MaxSize == 0 {
-		slog.Error("File max size is not set")
-		return false
+		return errors.New("File max size is not set")
 	}
 	if config.File.Path == "" {
-		slog.Error("File path is not set")
-		return false
+		return errors.New("File path is not set")
 	}
 	if config.Logging.Level == "" {
-		slog.Error("Logging level is not set")
-		return false
+		return errors.New("Logging level is not set")
 	}
 	if config.AWS.Region == "" {
-		slog.Error("AWS region is not set")
-		return false
+		return errors.New("AWS region is not set")
 	}
 
 	// Only validate AWS keys if the environment is not "production".
@@ -114,22 +110,18 @@ func ValidateConfig(config *Config) bool {
 	if strings.ToLower(config.Environment) != "production" {
 		slog.Info("Non-production environment detected, validating AWS keys", "environment", config.Environment)
 		if config.AWS.AccessKeyID == "" {
-			slog.Error("AWS access key ID is not set for non-production environment")
-			return false
+			return errors.New("AWS access key ID is not set for non-production environment")
 		}
 		if config.AWS.SecretAccessKey == "" {
-			slog.Error("AWS secret access key is not set for non-production environment")
-			return false
+			return errors.New("AWS secret access key is not set for non-production environment")
 		}
 	}
 
 	if config.AWS.S3.BucketName == "" {
-		slog.Error("S3 bucket name is not set")
-		return false
+		return errors.New("S3 bucket name is not set")
 	}
 	if config.AWS.S3.PresignedURLExpiry == 0 {
-		slog.Error("S3 presigned URL expiry is not set")
-		return false
+		return errors.New("S3 presigned URL expiry is not set")
 	}
-	return true
+	return nil
 }

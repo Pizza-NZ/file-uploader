@@ -15,10 +15,10 @@ resource "aws_security_group" "ecs_service" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = var.app_port
+    to_port     = var.app_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # For now, allow traffic from anywhere. This should be restricted in a production environment.
+    cidr_blocks = var.ingress_cidr_blocks
   }
 
   egress {
@@ -51,8 +51,8 @@ resource "aws_ecs_task_definition" "main" {
       essential = true
       portMappings = [
         {
-          containerPort = 2131
-          hostPort      = 2131
+          containerPort = var.app_port
+          hostPort      = var.app_port
         }
       ]
       logConfiguration = {
@@ -105,7 +105,7 @@ resource "aws_ecs_service" "main" {
   load_balancer {
     target_group_arn = aws_lb_target_group.main.arn
     container_name   = var.app_name
-    container_port   = 2131
+    container_port   = var.app_port
   }
 
   depends_on = [

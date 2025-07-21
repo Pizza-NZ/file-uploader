@@ -1,4 +1,3 @@
-
 # Creates an Application Load Balancer (ALB).
 resource "aws_lb" "main" {
   name               = "${var.app_name}-alb"
@@ -16,7 +15,7 @@ resource "aws_lb" "main" {
 # This group will contain the ECS tasks, and the ALB will route traffic to them.
 resource "aws_lb_target_group" "main" {
   name        = "${var.app_name}-tg"
-  port        = 8080
+  port        = var.app_port
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
@@ -24,6 +23,7 @@ resource "aws_lb_target_group" "main" {
   health_check {
     path                = "/health"
     protocol            = "HTTP"
+    port                = "traffic-port" # This tells the health check to use the main target group port (2131)
     matcher             = "200"
     interval            = 30
     timeout             = 5

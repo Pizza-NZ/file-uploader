@@ -18,19 +18,24 @@ import (
 	"github.com/pizza-nz/file-uploader/storage"
 )
 
+func handleStartupError(msg string, err error) {
+	if err != nil {
+		slog.Error(msg, "error", err)
+		os.Exit(1)
+	}
+}
+
 func main() {
 	configPath := flag.String("config", "config.yml", "path to config file")
 	flag.Parse()
 
 	cfg, err := config.NewConfig(*configPath)
 	if err != nil {
-		slog.Error("Failed to load configuration", "error", err)
-		os.Exit(1)
+		handleStartupError("Failed to load configuration", err)
 	}
 
-	if !config.ValidateConfig(cfg) {
-		slog.Error("Invalid configuration")
-		os.Exit(1)
+	if err = config.ValidateConfig(cfg); err != nil {
+		handleStartupError("Configuration validation failed", err)
 	}
 
 	logger := logging.NewLogger(cfg.Logging.Level)
@@ -38,8 +43,7 @@ func main() {
 
 	fileStorage, err := storage.NewS3Storage(context.Background(), cfg.AWS)
 	if err != nil {
-		slog.Error("Failed to create S3 storage", "error", err)
-		os.Exit(1)
+		handleStartupError("Failed to create S3 storage", err)
 	}
 
 	fileUploadService := services.NewFileUploadService(fileStorage)
@@ -57,8 +61,7 @@ func main() {
 	go func() {
 		slog.Info("Starting server", "addr", cfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("Server failed to start", "error", err)
-			os.Exit(1)
+			handleStartupError("Server failed to start", err)
 		}
 	}()
 
