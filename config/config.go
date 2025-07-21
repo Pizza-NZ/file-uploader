@@ -12,6 +12,7 @@ import (
 
 type Config struct {
 	Environment string         `yaml:"environment"`
+	StorageType string         `yaml:"storage_type"`
 	Server      ServerConfig   `yaml:"server"`
 	File        FileConfig     `yaml:"file"`
 	Logging     LoggingConfig  `yaml:"logging"`
@@ -25,11 +26,12 @@ type ServerConfig struct {
 }
 
 type FileConfig struct {
-	MaxSize   int64  `yaml:"maxSize"`
-	Path      string `yaml:"path"`
-	Timeout   int    `yaml:"timeout"`
-	Unit      string `yaml:"unit"`
-	ChunkSize int    `yaml:"chunkSize"`
+	MaxSize      int64    `yaml:"maxSize"`
+	AllowedTypes []string `yaml:"allowedTypes"`
+	Path         string   `yaml:"path"`
+	Timeout      int      `yaml:"timeout"`
+	Unit         string   `yaml:"unit"`
+	ChunkSize    int      `yaml:"chunkSize"`
 }
 
 type LoggingConfig struct {

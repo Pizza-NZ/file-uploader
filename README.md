@@ -84,18 +84,21 @@ TODO.md
     cd file-uploader
     ```
 
-2.  **Deploy Infrastructure with Terraform:**
+2.  **Deployment Options:**
 
-    Navigate to the `terraform` directory and initialize Terraform, plan, and apply your infrastructure. Ensure your AWS credentials are configured.
+    *   **For Cloud Deployment:** Follow the steps as listed to deploy the full infrastructure to AWS with Terraform.
+        *   Navigate to the `terraform` directory and initialize Terraform, plan, and apply your infrastructure. Ensure your AWS credentials are configured.
 
-    ```bash
-    cd terraform
-    terraform init
-    terraform plan
-    terraform apply
-    ```
+            ```bash
+            cd terraform
+            terraform init
+            terraform plan
+            terraform apply
+            ```
 
-    This will provision AWS resources including an S3 bucket, ECR repository, ECS cluster, VPC, and more.
+            This will provision AWS resources including an S3 bucket, ECR repository, ECS cluster, VPC, and more.
+
+    *   **For Local Development Only:** If you wish to run the service locally without deploying to AWS, you can skip the Terraform steps and use `docker-compose up --build`. Note that the service will be configured to use a mock storage layer in this mode.
 
 3.  **Build and Run Locally (for development/testing):**
 

@@ -7,12 +7,16 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockFileStorage is a mock implementation of the FileStorage interface for testing.
+// MockFileStorage is a mock implementation of the FileStorage interface for local development.
+// It simulates file uploads by logging the file details to the console.
+
 type MockFileStorage struct {
 	mock.Mock
 }
 
-var _ FileStorage = (*MockFileStorage)(nil)
+func NewMockFileStorage() *MockFileStorage {
+	return &MockFileStorage{}
+}
 
 func (m *MockFileStorage) Upload(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (string, error) {
 	args := m.Called(ctx, file, handler)

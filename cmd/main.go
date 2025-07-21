@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -41,12 +42,21 @@ func main() {
 	logger := logging.NewLogger(cfg.Logging.Level)
 	slog.SetDefault(logger)
 
-	fileStorage, err := storage.NewS3Storage(context.Background(), cfg.AWS)
-	if err != nil {
-		handleStartupError("Failed to create S3 storage", err)
+	var fileStorage storage.FileStorage
+	switch cfg.StorageType {
+	case "s3":
+		var err error
+		fileStorage, err = storage.NewS3Storage(context.Background(), cfg.AWS)
+		if err != nil {
+			handleStartupError("Failed to create S3 storage", err)
+		}
+	case "mock":
+		fileStorage = storage.NewMockFileStorage()
+	default:
+		handleStartupError("Invalid storage type", fmt.Errorf("storage type '%s' is not supported", cfg.StorageType))
 	}
 
-	fileUploadService := services.NewFileUploadService(fileStorage)
+	fileUploadService := services.NewFileUploadService(fileStorage, cfg.File.AllowedTypes)
 
 	mux := http.NewServeMux()
 	handl := handlers.NewFileUploadHandler(cfg.File.MaxSize, fileUploadService)
