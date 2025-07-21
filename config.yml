@@ -1,5 +1,7 @@
+environment: "local"
+
 server:
-  port: ":8080"
+  port: ":2131"
   host: "localhost"
 
 file:

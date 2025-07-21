@@ -51,9 +51,8 @@ resource "aws_ecs_task_definition" "main" {
       essential = true
       portMappings = [
         {
-          # CORRECTED: This now matches the PORT env var and the load balancer target.
-          containerPort = 8080
-          hostPort      = 8080
+          containerPort = 2131
+          hostPort      = 2131
         }
       ]
       logConfiguration = {
@@ -69,11 +68,6 @@ resource "aws_ecs_task_definition" "main" {
           name  = "GIN_MODE"
           value = "release"
         },
-        {
-          name  = "PORT"
-          value = "8080"
-        },
-        # ADDED: This tells the Go application it's running in production.
         {
           name  = "APP_ENV"
           value = "production"
@@ -111,7 +105,7 @@ resource "aws_ecs_service" "main" {
   load_balancer {
     target_group_arn = aws_lb_target_group.main.arn
     container_name   = var.app_name
-    container_port   = 8080
+    container_port   = 2131
   }
 
   depends_on = [
