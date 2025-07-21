@@ -1,4 +1,3 @@
-
 # Creates an ECS cluster to run the application.
 resource "aws_ecs_cluster" "main" {
   name = "${var.app_name}-cluster"
@@ -52,6 +51,7 @@ resource "aws_ecs_task_definition" "main" {
       essential = true
       portMappings = [
         {
+          # CORRECTED: This now matches the PORT env var and the load balancer target.
           containerPort = 8080
           hostPort      = 8080
         }
@@ -72,6 +72,11 @@ resource "aws_ecs_task_definition" "main" {
         {
           name  = "PORT"
           value = "8080"
+        },
+        # ADDED: This tells the Go application it's running in production.
+        {
+          name  = "APP_ENV"
+          value = "production"
         }
       ]
       secrets = [

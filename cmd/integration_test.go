@@ -22,7 +22,7 @@ func TestIntegration(t *testing.T) {
 }
 
 func goServiceHealth(t *testing.T) {
-	resp, err := http.Get("http://go-service:2131/health")
+	resp, err := http.Get("http://go-service:8080/health")
 	if err != nil {
 		t.Fatalf("Failed to request go-service health check: %v", err)
 	}

@@ -3,17 +3,19 @@ package config
 import (
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	File     FileConfig     `yaml:"file"`
-	Logging  LoggingConfig  `yaml:"logging"`
-	Database DatabaseConfig `yaml:"database"`
-	AWS      AWSConfig      `yaml:"aws"`
+	Environment string         `yaml:"environment"`
+	Server      ServerConfig   `yaml:"server"`
+	File        FileConfig     `yaml:"file"`
+	Logging     LoggingConfig  `yaml:"logging"`
+	Database    DatabaseConfig `yaml:"database"`
+	AWS         AWSConfig      `yaml:"aws"`
 }
 
 type ServerConfig struct {
@@ -72,12 +74,19 @@ func NewConfig(configPath string) (*Config, error) {
 		return nil, err
 	}
 
+	// Allow environment variable override for the environment setting
+	if env := os.Getenv("APP_ENV"); env != "" {
+		config.Environment = env
+	}
+
 	config.AWS.AccessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
 	config.AWS.SecretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
 	return config, nil
 }
 
+// ValidateConfig checks if the configuration is valid.
+// It now includes an environment check to only validate AWS keys in non-production environments.
 func ValidateConfig(config *Config) bool {
 	if config.Server.Port == "" {
 		slog.Error("Server port is not set")
@@ -99,14 +108,21 @@ func ValidateConfig(config *Config) bool {
 		slog.Error("AWS region is not set")
 		return false
 	}
-	if config.AWS.AccessKeyID == "" {
-		slog.Error("AWS access key ID is not set")
-		return false
+
+	// Only validate AWS keys if the environment is not "production".
+	// This allows local development with .env files while using IAM roles in production.
+	if strings.ToLower(config.Environment) != "production" {
+		slog.Info("Non-production environment detected, validating AWS keys", "environment", config.Environment)
+		if config.AWS.AccessKeyID == "" {
+			slog.Error("AWS access key ID is not set for non-production environment")
+			return false
+		}
+		if config.AWS.SecretAccessKey == "" {
+			slog.Error("AWS secret access key is not set for non-production environment")
+			return false
+		}
 	}
-	if config.AWS.SecretAccessKey == "" {
-		slog.Error("AWS secret access key is not set")
-		return false
-	}
+
 	if config.AWS.S3.BucketName == "" {
 		slog.Error("S3 bucket name is not set")
 		return false
