@@ -24,9 +24,9 @@ type S3Storage struct {
 var _ FileStorage = (*S3Storage)(nil)
 
 // NewS3Storage creates a new S3Storage instance.
-func NewS3Storage(cfg config.AWSConfig) (FileStorage, error) {
+func NewS3Storage(ctx context.Context, cfg config.AWSConfig) (FileStorage, error) {
 	creds := credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")
-	awsCfg, err := awsConfig.LoadDefaultConfig(context.TODO(),
+	awsCfg, err := awsConfig.LoadDefaultConfig(ctx,
 		awsConfig.WithRegion(cfg.Region),
 		awsConfig.WithCredentialsProvider(creds),
 	)

@@ -1,20 +1,20 @@
-# File Uploader Go Application Documentation
-
 ## 1. Overview
 
-This document provides a detailed explanation of a file upload web service written in Go. The application is designed to allow users to upload files, which are then stored temporarily on the server.
+This document provides a detailed explanation of a file upload web service written in Go. The application is designed to allow users to upload files, which are then stored in an AWS S3 bucket.
 
-The service is built with a modular architecture, separating concerns like logging, middleware, request handling, and file storage logic. It uses Nginx as a reverse proxy to handle incoming requests and serve static content.
+The service is built with a modular architecture, separating concerns like logging, middleware, request handling, and file storage logic. It uses Nginx as a reverse proxy to handle incoming requests and serve static content. The entire infrastructure is provisioned and managed using Terraform on AWS.
 
 ## 2. Core Features
 
-*   **File Upload:** Accepts multipart form data for file uploads.
+*   **File Upload:** Accepts multipart form data for file uploads, storing them directly in AWS S3.
 *   **Nginx Reverse Proxy:** Handles incoming HTTP requests and forwards file upload requests to the Go service.
-*   **Temporary File Storage:** Uploaded files are stored in a temporary directory on the server.
+*   **Cloud-Native Storage:** Utilizes AWS S3 for scalable and durable file storage.
+*   **Infrastructure as Code (IaC):** All AWS resources are defined and managed using Terraform.
 *   **Health Check Endpoint:** Provides a `/health` endpoint to check the service status.
 *   **Structured Logging:** Implements structured logging for better observability.
 *   **Request ID Middleware:** Adds a unique request ID to each incoming request for tracing.
 *   **Robust Error Handling:** Utilizes custom error types for consistent and informative error responses.
+*   **CI/CD Pipeline:** Automated testing, Docker image building, and deployment to AWS ECS via GitHub Actions.
 
 ## 3. Project Structure
 
@@ -28,6 +28,8 @@ The project is organized into the following directories:
 *   `proxy/`: Contains Nginx configuration.
 *   `public/`: Stores static web content (e.g., `index.html`).
 *   `services/`: Implements the core business logic for file handling.
+*   `storage/`: Contains the `FileStorage` interface and its AWS S3 implementation.
+*   `terraform/`: Contains all Terraform configurations for AWS infrastructure.
 *   `types/`: Defines shared data structures and custom error types.
 *   `utils/`: Provides utility functions for JSON responses and error handling.
 
@@ -57,7 +59,7 @@ func main() {
 
 ### 4.2. Handlers (`handlers/handlers.go`)
 
-The `handlers` package contains the `FileUploadHandler` interface and its implementation. The `CreateFileUpload` method handles the actual file upload process, parsing multipart forms and delegating to the service layer. The `HealthCheck` function provides a simple status endpoint.
+The `handlers` package contains the `FileUploadHandler` interface and its implementation. The `CreateFileUpload` method handles the actual file upload process, parsing multipart forms and delegating to the service layer.
 
 ```go
 // CreateFileUpload handles the file upload HTTP request.
@@ -89,26 +91,54 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 
 ### 4.3. Services (`services/services.go`)
 
-The `services` package contains the `FileUploadService` interface and its `FileUploadServiceImpl` implementation. This layer encapsulates the business logic for file storage.
+The `services` package contains the `FileUploadService` interface and its `FileUploadServiceImpl` implementation. This layer encapsulates the business logic for file storage, now interacting with the `storage` package.
 
 ```go
 // CreateFileUpload handles the storage of the uploaded file.
 func (s *FileUploadServiceImpl) CreateFileUpload(file multipart.File, handler *multipart.FileHeader) (*types.FileUploadResponse, error) {
 	defer file.Close()
 
-	// ... (temporary folder creation and file handling)
+	// ... (delegating to storage.Upload)
 
-	tempFileName := fmt.Sprintf("upload-%s-*%s", utils.FileNameWithoutExtension(handler.Filename), filepath.Ext(handler.Filename))
+	// Example: Assuming s.storage is an instance of storage.FileStorage
+	s3ObjectKey, err := s.storage.Upload(r.Context(), file, handler)
+	if err != nil {
+		return nil, err
+	}
 
-	tempFile, err := os.CreateTemp(tempFolderPath, tempFileName)
-	// ... (error handling and file writing)
-
-	slog.Info("File uploaded successfully", "filename", handler.Filename)
-	return &types.FileUploadResponse{FileID: filepath.Base(tempFile.Name()), Size: handler.Size}, nil
+	slog.Info("File uploaded successfully to S3", "filename", handler.Filename, "s3ObjectKey", s3ObjectKey)
+	return &types.FileUploadResponse{FileID: s3ObjectKey, Size: handler.Size}, nil
 }
 ```
 
-### 4.4. Error Handling (`types/errors.go`, `utils/utils.go`)
+### 4.4. Storage (`storage/s3.go`, `storage/storage.go`)
+
+The `storage` package defines the `FileStorage` interface, abstracting file operations. The `s3.go` file provides an implementation of this interface for AWS S3, handling the actual upload of files to the configured S3 bucket.
+
+```go
+// FileStorage defines the interface for file storage operations.
+type FileStorage interface {
+	Upload(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (string, error)
+}
+
+// S3Storage implements the FileStorage interface for AWS S3.
+type S3Storage struct {
+	client     *s3.Client
+	bucketName string
+}
+
+// NewS3Storage creates a new S3Storage instance.
+func NewS3Storage(cfg config.AWSConfig) (FileStorage, error) {
+	// ... (AWS SDK configuration and S3 client creation)
+}
+
+// Upload uploads a file to S3 and returns the object key.
+func (s *S3Storage) Upload(ctx context.Context, file multipart.File, handler *multipart.FileHeader) (string, error) {
+	// ... (UUID generation, S3 PutObject call)
+}
+```
+
+### 4.5. Error Handling (`types/errors.go`, `utils/utils.go`)
 
 The application uses a centralized error handling strategy with a generic `AppError` struct for consistent error responses. The `HandleError` utility function in `utils/utils.go` ensures errors are logged and returned as JSON responses.
 
@@ -144,11 +174,11 @@ func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 
 This project employs several design patterns and architectural choices to ensure maintainability, testability, and scalability:
 
-*   **Modular Architecture (Separation of Concerns):** The codebase is divided into distinct packages (`handlers`, `services`, `types`, `logging`, `middleware`, `utils`) each responsible for a specific aspect of the application. This separation enhances readability, makes it easier to locate and modify code, and promotes independent development and testing of components.
+*   **Modular Architecture (Separation of Concerns):** The codebase is divided into distinct packages (`handlers`, `services`, `storage`, `types`, `logging`, `middleware`, `utils`) each responsible for a specific aspect of the application. This separation enhances readability, makes it easier to locate and modify code, and promotes independent development and testing of components.
 
-*   **Interfaces for Abstraction and Testability:** Interfaces like `FileUploadHandler` and `FileUploadService` are used to define contracts for behavior. This allows for loose coupling between components, making it easy to swap out implementations (e.g., for different storage backends) and, crucially, to create mock implementations for unit testing. This is evident in `handlers/handlers_test.go` and `services/services_test.go` where mock services are used to isolate the component under test.
+*   **Interfaces for Abstraction and Testability:** Interfaces like `FileStorage` are used to define contracts for behavior. This allows for loose coupling between components, making it easy to swap out implementations (e.g., for different storage backends) and, crucially, to create mock implementations for unit testing. This is evident in `handlers/handlers_test.go` and `services/services_test.go` where mock services are used to isolate the component under test.
 
-*   **Dependency Injection:** Dependencies (e.g., `FileUploadService` in `FileUploadHandlerImpl`) are injected through constructors (`NewFileUploadHandler`). This promotes loose coupling and makes components easier to test by allowing mock dependencies to be provided during testing.
+*   **Dependency Injection:** Dependencies (e.g., `FileStorage` in `FileUploadServiceImpl`) are injected through constructors (`NewS3Storage`). This promotes loose coupling and makes components easier to test by allowing mock dependencies to be provided during testing.
 
 *   **Centralized Error Handling:** The `AppError` custom type and the `HandleError` utility function provide a consistent and centralized mechanism for handling errors across the application. This ensures that errors are logged uniformly, and meaningful, structured JSON responses are returned to the client, improving both debugging and user experience.
 
@@ -157,9 +187,9 @@ This project employs several design patterns and architectural choices to ensure
 This project utilizes a multi-faceted testing strategy to ensure the reliability and correctness of the application:
 
 *   **Unit Tests:**
-    *   **Location:** `handlers/handlers_test.go`, `services/services_test.go`
+    *   **Location:** `handlers/handlers_test.go`, `services/services_test.go`, `storage/storage_test.go` (if applicable)
     *   **Purpose:** These tests focus on individual components (functions, methods) in isolation. They verify the correctness of the business logic within the `services` package and the request/response handling within the `handlers` package.
-    *   **Methodology:** Mock implementations (e.g., `MockFileUploadService`) are used to isolate the component under test from its dependencies, ensuring that only the logic of the unit itself is being validated. This provides fast feedback during development and helps pinpoint bugs precisely.
+    *   **Methodology:** Mock implementations (e.g., `MockFileUploadService`, `MockFileStorage`) are used to isolate the component under test from its dependencies, ensuring that only the logic of the unit itself is being validated. This provides fast feedback during development and helps pinpoint bugs precisely.
 
 *   **Integration Tests:**
     *   **Location:** `cmd/integration_test.go`
@@ -168,7 +198,7 @@ This project utilizes a multi-faceted testing strategy to ensure the reliability
 
 ## 7. Rationale and Reasoning
 
-*   **Temporary File Storage:** For this project, files are stored temporarily on the server's local filesystem for simplicity. In a production environment, a more robust and scalable solution would be required, such as persistent storage volumes (e.g., Docker volumes, Kubernetes PVCs), cloud storage services (e.g., AWS S3, Google Cloud Storage), or a dedicated file storage system.
+*   **AWS S3 for File Storage:** The application now uses AWS S3 for file storage, providing a robust, scalable, and highly available solution for storing uploaded files. This is a significant improvement over temporary local filesystem storage, making the application suitable for production environments.
 
 *   **Nginx as a Reverse Proxy:** Nginx is used as a reverse proxy for several reasons:
     *   **Load Balancing:** While not explicitly configured for load balancing in this simple setup, Nginx is highly capable of distributing incoming traffic across multiple instances of the Go service, improving scalability and reliability.
@@ -179,3 +209,7 @@ This project utilizes a multi-faceted testing strategy to ensure the reliability
 *   **Structured Logging (slog):** The `log/slog` package is used for structured logging. This makes logs easier to parse, filter, and analyze with log management tools, improving observability and debugging capabilities, especially in production environments.
 
 *   **Request ID Middleware:** The `RequestIDMiddleware` assigns a unique ID to each incoming HTTP request. This ID is propagated through logs, allowing for end-to-end tracing of a request's journey through different components of the system, which is invaluable for debugging and performance monitoring.
+
+*   **Infrastructure as Code (Terraform):** The adoption of Terraform for infrastructure provisioning ensures that the entire AWS environment is defined, versioned, and managed as code. This provides consistency, repeatability, and reduces the risk of manual configuration errors, making deployments more reliable and efficient.
+
+*   **CI/CD with GitHub Actions:** The comprehensive CI/CD pipeline automates the entire software delivery process, from code changes to deployment. This enables rapid iteration, ensures code quality through automated testing, and provides a streamlined, reliable deployment mechanism to AWS ECS.

@@ -1,9 +1,16 @@
+environment: "local"
+storage_type: mock
+
 server:
   port: ":2131"
   host: "localhost"
 
 file:
   maxSize: 209715200 # 200MB
+  allowedTypes:
+    - "image/jpeg"
+    - "image/png"
+    - "application/pdf"
   path: "./tempFiles"
   timeout: 30
   unit: "s"
@@ -22,5 +29,5 @@ database:
 aws:
   region: "ap-southeast-2"
   s3:
-    bucket_name: ${S3_BUCKET_NAME}
+    bucket_name: file-uploader-uploads-330154525676
     presigned_url_expiry: 30 # in minutes

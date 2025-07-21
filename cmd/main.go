@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -18,31 +19,44 @@ import (
 	"github.com/pizza-nz/file-uploader/storage"
 )
 
+func handleStartupError(msg string, err error) {
+	if err != nil {
+		slog.Error(msg, "error", err)
+		os.Exit(1)
+	}
+}
+
 func main() {
 	configPath := flag.String("config", "config.yml", "path to config file")
 	flag.Parse()
 
 	cfg, err := config.NewConfig(*configPath)
 	if err != nil {
-		slog.Error("Failed to load configuration", "error", err)
-		os.Exit(1)
+		handleStartupError("Failed to load configuration", err)
 	}
 
-	if !config.ValidateConfig(cfg) {
-		slog.Error("Invalid configuration")
-		os.Exit(1)
+	if err = config.ValidateConfig(cfg); err != nil {
+		handleStartupError("Configuration validation failed", err)
 	}
 
 	logger := logging.NewLogger(cfg.Logging.Level)
 	slog.SetDefault(logger)
 
-	fileStorage, err := storage.NewS3Storage(cfg.AWS)
-	if err != nil {
-		slog.Error("Failed to create S3 storage", "error", err)
-		os.Exit(1)
+	var fileStorage storage.FileStorage
+	switch cfg.StorageType {
+	case "s3":
+		var err error
+		fileStorage, err = storage.NewS3Storage(context.Background(), cfg.AWS)
+		if err != nil {
+			handleStartupError("Failed to create S3 storage", err)
+		}
+	case "mock":
+		fileStorage = storage.NewMockFileStorage()
+	default:
+		handleStartupError("Invalid storage type", fmt.Errorf("storage type '%s' is not supported", cfg.StorageType))
 	}
 
-	fileUploadService := services.NewFileUploadService(fileStorage)
+	fileUploadService := services.NewFileUploadService(fileStorage, cfg.File.AllowedTypes)
 
 	mux := http.NewServeMux()
 	handl := handlers.NewFileUploadHandler(cfg.File.MaxSize, fileUploadService)
@@ -57,8 +71,7 @@ func main() {
 	go func() {
 		slog.Info("Starting server", "addr", cfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("Server failed to start", "error", err)
-			os.Exit(1)
+			handleStartupError("Server failed to start", err)
 		}
 	}()
 

@@ -46,7 +46,7 @@ func (h *FileUploadHandlerImpl) CreateFileUpload(w http.ResponseWriter, r *http.
 		return
 	}
 
-	fileUploadResponse, err := h.service.CreateFileUpload(file, handler)
+	fileUploadResponse, err := h.service.CreateFileUpload(r.Context(), file, handler)
 	if err != nil {
 		utils.HandleError(w, r, err)
 		return

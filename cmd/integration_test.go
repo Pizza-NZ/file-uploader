@@ -9,7 +9,7 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
-	time.Sleep(5 * time.Second) // Wait for services to be up
+	time.Sleep(1 * time.Second) // Wait for services to be up
 
 	t.Run("Health checks", func(t *testing.T) {
 		goServiceHealth(t)
