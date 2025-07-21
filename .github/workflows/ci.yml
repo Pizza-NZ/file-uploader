@@ -84,7 +84,7 @@ jobs:
           NEW_IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
           # Update the image in the task definition JSON
-          UPDATED_TASK_DEFINITION=$(echo $CURRENT_TASK_DEFINITION | jq             --arg NEW_IMAGE "$NEW_IMAGE_URI"             '.taskDefinition | .containerDefinitions |= map(if .name == "file-uploader" then .image = $NEW_IMAGE else . end) | del(.taskDefinitionArn, .revision, .status, .compatibilities)')
+          UPDATED_TASK_DEFINITION=$(echo $CURRENT_TASK_DEFINITION | jq             --arg NEW_IMAGE "$NEW_IMAGE_URI"             '.taskDefinition | .containerDefinitions |= map(if .name == "file-uploader" then .image = $NEW_IMAGE else . end) | del(.taskDefinitionArn, .revision, .status, .compatibilities, .requiresAttributes, .registeredAt, .registeredBy)'
 
           # Register the new task definition
           NEW_TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
