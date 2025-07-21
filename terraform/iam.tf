@@ -68,3 +68,10 @@ resource "aws_iam_role_policy_attachment" "ecs_task_role_secrets_access" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.secrets_access.arn
 }
+
+# Attaches the secrets access policy to the ECS task execution role.
+# This is required for the ECS agent to pull the secret and inject it into the container.
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_secrets_access" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = aws_iam_policy.secrets_access.arn
+}
