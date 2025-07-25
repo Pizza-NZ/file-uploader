@@ -31,3 +31,15 @@ aws:
   s3:
     bucket_name: file-uploader-uploads-330154525676
     presigned_url_expiry: 30 # in minutes
+
+otel:
+  enabled: true
+  exporter:
+    type: "otlp"
+    endpoint: "localhost:4318"
+    insecure: true
+  service_name: "file-uploader-service"
+  resource_attributes:
+    - "service.name=file-uploader-service"
+    - "service.version=1.0.0"
+    - "service.instance.id=instance-12345"

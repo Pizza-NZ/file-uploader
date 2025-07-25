@@ -16,6 +16,7 @@ type Config struct {
 	Server      ServerConfig   `yaml:"server"`
 	File        FileConfig     `yaml:"file"`
 	Logging     LoggingConfig  `yaml:"logging"`
+	Otel        OtelConfig     `yaml:"otel"`
 	Database    DatabaseConfig `yaml:"database"`
 	AWS         AWSConfig      `yaml:"aws"`
 }
@@ -36,6 +37,12 @@ type FileConfig struct {
 
 type LoggingConfig struct {
 	Level string `yaml:"level"`
+}
+
+type OtelConfig struct {
+	OtelServiceName string  `yaml:"service_name"`
+	OtelEndpoint    string  `yaml:"endpoint"`
+	OtelSampleRatio float64 `yaml:"otelSampleRatio"`
 }
 
 type DatabaseConfig struct {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/pizza-nz/file-uploader/config"
 	"github.com/pizza-nz/file-uploader/handlers"
+	"github.com/pizza-nz/file-uploader/instrumentation"
 	"github.com/pizza-nz/file-uploader/logging"
 	"github.com/pizza-nz/file-uploader/middleware"
 	"github.com/pizza-nz/file-uploader/services"
@@ -42,6 +43,12 @@ func main() {
 	logger := logging.NewLogger(cfg.Logging.Level)
 	slog.SetDefault(logger)
 
+	shutdown, err := instrumentation.SetupOTelSDK(context.Background())
+	if err != nil {
+		handleStartupError("Failed to set up OpenTelemetry SDK", err)
+	}
+	defer shutdown(context.Background())
+
 	var fileStorage storage.FileStorage
 	switch cfg.StorageType {
 	case "s3":
@@ -65,7 +72,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    cfg.Server.Port,
-		Handler: middleware.RequestIDMiddleware(mux),
+		Handler: middleware.RequestIDMiddleware(middleware.OpenTelemetryMiddleware(mux)),
 	}
 
 	go func() {

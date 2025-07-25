@@ -11,6 +11,7 @@ import (
 	"github.com/pizza-nz/file-uploader/storage"
 	"github.com/pizza-nz/file-uploader/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // Mocking multipart.File
@@ -29,6 +30,7 @@ func (m *mockMultipartFile) ReadAt(p []byte, off int64) (n int, err error) {
 func TestCreateFileUpload_Success(t *testing.T) {
 	mockFileStorage := new(storage.MockFileStorage)
 	allowedTypes := []string{"image/jpeg"}
+	mockFileStorage.ShouldFail = false
 
 	// Create a dummy file content for a JPEG (1x1 black pixel)
 	fileContent := []byte{
@@ -52,7 +54,7 @@ func TestCreateFileUpload_Success(t *testing.T) {
 
 	service := NewFileUploadService(mockFileStorage, allowedTypes)
 
-	mockFileStorage.On("Upload", context.Background(), file, handler).Return("some-object-key", nil)
+	mockFileStorage.On("Upload", mock.Anything, file, handler).Return("some-object-key", nil)
 
 	response, err := service.CreateFileUpload(context.Background(), file, handler)
 
@@ -90,7 +92,7 @@ func TestCreateFileUpload_StorageError(t *testing.T) {
 
 	service := NewFileUploadService(mockFileStorage, allowedTypes)
 
-	mockFileStorage.On("Upload", context.Background(), file, handler).Return("", errors.New("Storage error"))
+	mockFileStorage.On("Upload", mock.Anything, file, handler).Return("", errors.New("Storage error"))
 
 	_, err := service.CreateFileUpload(context.Background(), file, handler)
 
