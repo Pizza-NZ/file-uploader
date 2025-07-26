@@ -37,7 +37,7 @@ func (h *FileUploadHandlerImpl) CreateFileUpload(w http.ResponseWriter, r *http.
 	if h.service == nil {
 		panic("FileUploadService is not initialized")
 	}
-	slog.Info("New Put request", "requestID", r.Header.Get("X-Request-ID"))
+	slog.InfoContext(r.Context(), "New Put request", "requestID", r.Header.Get("X-Request-ID"))
 	r.ParseMultipartForm(h.maxFileSize)
 
 	file, handler, err := r.FormFile("uploadFile")

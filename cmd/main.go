@@ -40,7 +40,10 @@ func main() {
 		handleStartupError("Configuration validation failed", err)
 	}
 
-	logger := logging.NewLogger(cfg.Logging.Level)
+	baseHandler := logging.NewLogger(cfg.Environment)
+	otelHandler := logging.NewOtelSlogHandler(baseHandler.Handler())
+
+	logger := slog.New(otelHandler)
 	slog.SetDefault(logger)
 
 	shutdown, err := instrumentation.SetupOTelSDK(context.Background())
@@ -48,6 +51,8 @@ func main() {
 		handleStartupError("Failed to set up OpenTelemetry SDK", err)
 	}
 	defer shutdown(context.Background())
+
+	metricsMiddleware := middleware.NewMetricsMiddleware()
 
 	var fileStorage storage.FileStorage
 	switch cfg.StorageType {
@@ -70,9 +75,15 @@ func main() {
 	mux.HandleFunc("POST /upload", handl.CreateFileUpload)
 	mux.HandleFunc("GET /health", handlers.HealthCheck)
 
+	finalHandler := middleware.RequestIDMiddleware(
+		metricsMiddleware.Handler(
+			middleware.OpenTelemetryMiddleware(mux),
+		),
+	)
+
 	server := http.Server{
 		Addr:    cfg.Server.Port,
-		Handler: middleware.RequestIDMiddleware(middleware.OpenTelemetryMiddleware(mux)),
+		Handler: finalHandler,
 	}
 
 	go func() {
